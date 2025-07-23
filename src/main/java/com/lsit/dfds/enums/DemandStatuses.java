@@ -1,0 +1,7 @@
+package com.lsit.dfds.enums;
+
+public enum DemandStatuses {
+
+	PENDING, TRANSFERRED, APPROVED_BY_STATE, REJECTED_BY_STATE, APPROVED_BY_DISTRICT, REJECTED_BY_DISTRICT
+
+}
