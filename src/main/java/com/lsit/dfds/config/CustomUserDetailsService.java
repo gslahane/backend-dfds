@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import com.lsit.dfds.entity.User;
+import com.lsit.dfds.enums.Statuses;
 import com.lsit.dfds.repo.UserRepository;
 
 @Service
@@ -25,13 +26,17 @@ public class CustomUserDetailsService implements UserDetailsService {
 		User user = userRepository.findByUsername(username)
 				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
+		if (user.getStatus() == null || user.getStatus() != Statuses.ACTIVE) {
+			throw new UsernameNotFoundException("User is not active");
+		}
+		if (user.getRole() == null) {
+			throw new UsernameNotFoundException("User role not assigned");
+		}
+
 		Set<GrantedAuthority> authorities = Collections
 				.singleton(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
 
-		return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), true, // enabled
-				true, // accountNonExpired
-				true, // credentialsNonExpired
-				true, // accountNonLocked
-				authorities);
+		return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), true,
+				true, true, true, authorities);
 	}
 }

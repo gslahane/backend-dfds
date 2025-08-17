@@ -42,6 +42,9 @@ public class Tax {
 	@Column(nullable = true)
 	private String remarks;
 
+	@Column(nullable = false, unique = true)
+	private String code; // e.g., CGST, SGST
+
 	@CreationTimestamp
 	private LocalDateTime createdAt;
 

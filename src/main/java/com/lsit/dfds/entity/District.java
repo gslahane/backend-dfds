@@ -40,5 +40,4 @@ public class District {
 
 	@OneToMany(mappedBy = "district", cascade = CascadeType.ALL)
 	private List<Constituency> constituencies;
-
 }

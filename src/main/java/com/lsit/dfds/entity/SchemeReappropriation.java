@@ -7,7 +7,6 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.lsit.dfds.enums.ReappropriationStatuses;
-import com.lsit.dfds.enums.SchemeType;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -37,9 +36,10 @@ public class SchemeReappropriation {
 	@JoinColumn(name = "district_id", nullable = false)
 	private District district;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false)
-	private SchemeType schemeType;
+	// ✅ Correct mapping with SchemeType
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "scheme_type_id", nullable = false)
+	private DemandCode schemeType;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "target_scheme_id", nullable = false)
@@ -65,4 +65,10 @@ public class SchemeReappropriation {
 
 	@OneToMany(mappedBy = "reappropriation", cascade = CascadeType.ALL, orphanRemoval = true)
 	private List<SchemeReappropriationSource> sourceSchemes;
+
+	// SchemeReappropriation.java (ADD financialYear link)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "financial_year_id", nullable = false)
+	private FinancialYear financialYear;
+
 }

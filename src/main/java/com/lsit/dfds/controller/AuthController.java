@@ -3,8 +3,10 @@ package com.lsit.dfds.controller;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.lsit.dfds.entity.User;
 import com.lsit.dfds.repo.UserRepository;
+import com.lsit.dfds.service.AuditService;
 import com.lsit.dfds.utils.JwtUtil;
 
 @RestController
@@ -35,22 +38,40 @@ public class AuthController {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private AuditService audit;
+
 	@PostMapping("/login")
 	public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-		Authentication authentication = authenticationManager.authenticate(
-				new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-		SecurityContextHolder.getContext().setAuthentication(authentication);
+		try {
+			Authentication authentication = authenticationManager.authenticate(
+					new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+			SecurityContextHolder.getContext().setAuthentication(authentication);
 
-		Optional<User> userOpt = userRepository.findByUsername(loginRequest.getUsername());
-		if (userOpt.isEmpty()) {
-			return ResponseEntity.badRequest().body("Invalid username or password");
+			Optional<User> userOpt = userRepository.findByUsername(loginRequest.getUsername());
+			if (userOpt.isEmpty()) {
+				audit.log(loginRequest.getUsername(), "LOGIN_FAILED", "User", null, "User not found");
+				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
+			}
+			User user = userOpt.get();
+
+			String token = jwtUtil.generateToken(user.getUsername());
+
+			// keep existing response fields + add fullName
+			LoginResponse resp = new LoginResponse(token, user.getMobile(), user.getAgencyCode(),
+					user.getRole() != null ? user.getRole().name() : null, user.getDesignation(), user.getFullname() // NEW
+			);
+
+			audit.log(user.getUsername(), "LOGIN_SUCCESS", "User", user.getId(), null);
+			return ResponseEntity.ok(resp);
+
+		} catch (BadCredentialsException ex) {
+			audit.log(loginRequest.getUsername(), "LOGIN_FAILED", "User", null, "Bad credentials");
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
+		} catch (Exception ex) {
+			audit.log(loginRequest.getUsername(), "LOGIN_FAILED", "User", null, ex.getMessage());
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
 		}
-		User user = userOpt.get();
-
-		String token = jwtUtil.generateToken(user.getUsername());
-
-		return ResponseEntity.ok(new LoginResponse(token, user.getMobile(), user.getAgencyCode(), user.getRole().name(),
-				user.getDesignation()));
 	}
 
 	@GetMapping("/me")
@@ -65,7 +86,6 @@ public class AuthController {
 		SecurityContextHolder.clearContext();
 		return ResponseEntity.ok("Logged out successfully. Please clear token on client side.");
 	}
-
 }
 
 class LoginRequest {
@@ -95,13 +115,16 @@ class LoginResponse {
 	private String agencyCode;
 	private String role;
 	private String designation;
+	private String fullName; // NEW
 
-	public LoginResponse(String token, Long mobile, String agencyCode, String role, String designation) {
+	public LoginResponse(String token, Long mobile, String agencyCode, String role, String designation,
+			String fullName) {
 		this.token = token;
 		this.mobile = mobile;
 		this.agencyCode = agencyCode;
 		this.role = role;
 		this.designation = designation;
+		this.fullName = fullName;
 	}
 
 	public String getToken() {
@@ -123,4 +146,8 @@ class LoginResponse {
 	public String getDesignation() {
 		return designation;
 	}
+
+	public String getFullName() {
+		return fullName;
+	} // NEW
 }

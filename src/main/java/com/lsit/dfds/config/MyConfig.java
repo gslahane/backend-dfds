@@ -3,7 +3,6 @@ package com.lsit.dfds.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -41,16 +40,17 @@ public class MyConfig implements WebMvcConfigurer {
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		http
-				// 1) enable CORS support in Spring Security
-				.cors().and()
+		http.cors().and().csrf().disable().authorizeHttpRequests(auth -> auth
+				// ✅ Allow Swagger URLs without authentication
+				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger-resources/**",
+						"/webjars/**")
+				.permitAll()
 
-				// 2) disable CSRF
-				.csrf(csrf -> csrf.disable())
+				// ✅ Allow login without JWT
+				.requestMatchers("/api/auth/login").permitAll()
 
-				// 3) allow all (including OPTIONS)
-				.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-						.requestMatchers("/**").permitAll().anyRequest().authenticated())
+				// ✅ Require JWT for everything else
+				.anyRequest().authenticated())
 				.sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authenticationProvider(authenticationProvider())
 				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

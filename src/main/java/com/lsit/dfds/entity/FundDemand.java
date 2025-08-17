@@ -54,6 +54,11 @@ public class FundDemand {
 	@Column(nullable = false)
 	private LocalDate demandDate;
 
+	/** ✅ Mapping with FinancialYear */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "financial_year_id", nullable = false)
+	private FinancialYear financialYear;
+
 	@Column(nullable = true)
 	private String remarks;
 

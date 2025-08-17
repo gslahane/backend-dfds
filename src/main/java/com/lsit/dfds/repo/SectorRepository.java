@@ -7,4 +7,5 @@ import com.lsit.dfds.entity.Sector;
 
 @Repository
 public interface SectorRepository extends JpaRepository<Sector, Long> {
+
 }

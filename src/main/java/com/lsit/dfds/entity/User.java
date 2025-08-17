@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.lsit.dfds.enums.Roles;
 import com.lsit.dfds.enums.Statuses;
 
@@ -24,57 +25,51 @@ import lombok.Data;
 @Entity
 @Table(name = "lsit_dfds_user")
 public class User {
-
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
 	@Column(nullable = true)
-	private String username;
-
+	private String fullname;
+	@Column(nullable = false, unique = true)
+	private String username; // required + unique
 	@Column(nullable = true)
 	private String agencyCode;
-
 	private Long mobile = 0L;
-
 	@Column(nullable = true)
 	private String email;
-
 	@Column(nullable = true)
 	private String designation;
+	@Column(nullable = false)
+	private String password; // required
 
-	@Column(nullable = true)
-	private String password;
-
+	// legacy (nullable)
 	@Column(nullable = true)
 	private String accountNumber;
-
 	@Column(nullable = true)
 	private String ifsc;
-
 	@Column(nullable = true)
 	private String bankName;
 
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "under_id", referencedColumnName = "id", nullable = true)
-	private User supervisor; // replaces underId for clean hierarchy
+	@JoinColumn(name = "under_id")
+	@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
+	private User supervisor;
 
-	@Enumerated
-	@Column(nullable = true)
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
 	private Roles role;
 
-	@Column(nullable = true)
 	@Enumerated(EnumType.STRING)
-	private Statuses status;
+	@Column(nullable = false)
+	private Statuses status = Statuses.ACTIVE;
 
 	@CreationTimestamp
 	private LocalDateTime createdAt;
-
 	@Column(nullable = true)
 	private String createdBy;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "district_id")
 	private District district;
-
 }

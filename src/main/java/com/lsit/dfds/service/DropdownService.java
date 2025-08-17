@@ -2,23 +2,41 @@ package com.lsit.dfds.service;
 
 import java.util.List;
 
-import com.lsit.dfds.entity.Constituency;
-import com.lsit.dfds.entity.District;
-import com.lsit.dfds.entity.Division;
-import com.lsit.dfds.entity.Taluka;
+import com.lsit.dfds.dto.IdNameDto;
+import com.lsit.dfds.dto.SchemeTypeDropdownDto;
+import com.lsit.dfds.entity.Schemes;
+import com.lsit.dfds.entity.Work;
 
 public interface DropdownService {
 
 	List<String> getSchemeNamesForUser(String username);
 
-	List<Division> getAllDivisions();
+	List<IdNameDto> getAllFinancialYears();
 
-	List<District> getAllDistricts();
+	List<IdNameDto> getAllDivisions();
 
-	List<District> getDistrictsByDivisionId(Long divisionId);
+	List<IdNameDto> getAllDistricts();
 
-	List<Taluka> getTalukasByDistrictId(Long districtId);
+	List<IdNameDto> getAllSectors();
 
-	List<Constituency> getConstituenciesByDistrictId(Long districtId);
+	List<IdNameDto> getSchemesBySectorId(Long sectorId);
+
+	List<IdNameDto> getDistrictsByDivisionId(Long divisionId);
+
+	List<IdNameDto> getTalukasByDistrictId(Long districtId);
+
+	List<IdNameDto> getConstituenciesByDistrictId(Long districtId);
+
+	List<SchemeTypeDropdownDto> getAllSchemeTypesWithDetails();
+
+//	List<District> getDistrictsByDivisionId(Long divisionId);
+//
+//	List<Taluka> getTalukasByDistrictId(Long districtId);
+//
+//	List<Constituency> getConstituenciesByDistrictId(Long districtId);
+
+	List<Schemes> searchSchemesByFilters(String username, String districtName, Long districtId, String schemeType);
+
+	List<Work> getWorksBySchemeYearAndDistrict(String username, Long schemeId, String financialYear, Long districtId);
 
 }

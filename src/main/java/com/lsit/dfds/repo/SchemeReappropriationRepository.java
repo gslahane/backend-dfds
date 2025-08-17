@@ -16,4 +16,20 @@ public interface SchemeReappropriationRepository extends JpaRepository<SchemeRea
 
 	@Query("SELECT r FROM SchemeReappropriation r WHERE r.status = :status")
 	List<SchemeReappropriation> findByStatus(@Param("status") ReappropriationStatuses status);
+
+	@Query("""
+			   SELECT r FROM SchemeReappropriation r
+			   JOIN r.district d
+			   JOIN r.schemeType dc
+			   JOIN r.financialYear fy
+			   WHERE (:districtId IS NULL OR d.id = :districtId)
+			     AND (:financialYearId IS NULL OR fy.id = :financialYearId)
+			     AND (:demandCodeId IS NULL OR dc.id = :demandCodeId)
+			     AND (:status IS NULL OR r.status = :status)
+			   ORDER BY r.createdAt DESC
+			""")
+	List<SchemeReappropriation> search(@Param("districtId") Long districtId,
+			@Param("financialYearId") Long financialYearId, @Param("demandCodeId") Long demandCodeId,
+			@Param("status") ReappropriationStatuses status);
+
 }

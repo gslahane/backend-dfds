@@ -108,4 +108,8 @@ public class Vendor {
 
 	@CreationTimestamp
 	private LocalDateTime createdAt;
+
+	@Column(nullable = true)
+	private String createdBy; // 👈 Add this field
+
 }

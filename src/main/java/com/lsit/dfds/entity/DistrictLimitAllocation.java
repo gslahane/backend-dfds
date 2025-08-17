@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.lsit.dfds.enums.PlanType;
 import com.lsit.dfds.enums.Statuses;
 
 import jakarta.persistence.Column;
@@ -15,38 +16,58 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Data;
 
 @Data
 @Entity
-@Table(name = "lsit_dfds_district_limit_allocation")
+@Table(name = "lsit_dfds_district_limit_allocation", uniqueConstraints = @UniqueConstraint(columnNames = {
+		"district_id", "financial_year_id", "plan_type", "scheme_type_id" }))
 public class DistrictLimitAllocation {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@OneToOne(fetch = FetchType.LAZY)
+	// ✅ Many districts can have many allocations
+	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "district_id", nullable = false)
 	private District district;
 
-	private Double allocatedLimit = 0.0; // Allocated by State Admin
-
-	private Double utilizedLimit = 0.0; // Utilized by district while allocating to schemes
-
-	private Double remainingLimit = 0.0; // = allocatedLimit - utilizedLimit
-
-	@Column(nullable = true)
+	// ✅ Required for DAP row
 	@Enumerated(EnumType.STRING)
-	private Statuses status; // Active, Closed, etc.
+	@Column(name = "plan_type", nullable = false)
+	private PlanType planType;
+
+	// ✅ DemandCode (Revenue/Capital/Debt), required for DAP allocation row
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "scheme_type_id", nullable = false)
+	private DemandCode schemeType;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "financial_year_id", nullable = false)
+	private FinancialYear financialYear;
+
+	@Column(nullable = false)
+	private Double allocatedLimit = 0.0; // Allocated by State
+
+	@Column(nullable = false)
+	private Double utilizedLimit = 0.0; // Consumed downstream
+
+	@Column(nullable = false)
+	private Double remainingLimit = 0.0; // allocated - utilized
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = true)
+	private Statuses status;
 
 	@Column(nullable = true)
 	private String remarks;
 
 	@Column(nullable = true)
-	private String createdBy; // typically State Admin username
+	private String createdBy;
 
 	@CreationTimestamp
 	private LocalDateTime createdAt;

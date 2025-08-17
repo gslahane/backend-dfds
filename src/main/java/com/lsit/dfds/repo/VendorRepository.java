@@ -8,4 +8,6 @@ import com.lsit.dfds.entity.Vendor;
 @Repository
 public interface VendorRepository extends JpaRepository<Vendor, Long> {
 
+	Long countByCreatedBy(String createdBy);
+
 }

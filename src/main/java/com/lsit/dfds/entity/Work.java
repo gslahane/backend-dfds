@@ -2,12 +2,15 @@ package com.lsit.dfds.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.lsit.dfds.enums.WorkStatuses;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -86,7 +89,11 @@ public class Work {
 
 	@OneToOne
 	@JoinColumn(name = "vendor_id", referencedColumnName = "id")
-	private Vendor vendor;
+	private Vendor vendor; // Already Present
+
+	@ElementCollection
+	@CollectionTable(name = "lsit_dfds_work_taxes", joinColumns = @JoinColumn(name = "work_id"))
+	private List<TaxDetail> appliedTaxes; // Store selected taxes for the work
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "constituency_id")
@@ -99,5 +106,16 @@ public class Work {
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "mlc_id")
 	private MLC recommendedByMlc;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "district_id", nullable = false)
+	private District district;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "hadp_id", nullable = true)
+	private HADP hadp;
+
+	@Column(nullable = true)
+	private Boolean isNodalWork; // true = nodal, false = non-nodal
 
 }

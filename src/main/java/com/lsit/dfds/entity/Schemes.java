@@ -5,8 +5,8 @@ import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.lsit.dfds.enums.BaseSchemeType;
 import com.lsit.dfds.enums.PlanType;
-import com.lsit.dfds.enums.SchemeType;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -62,9 +62,17 @@ public class Schemes {
 
 	private Double nextBudget = 0.0;
 
-	@Enumerated
-	@Column(nullable = true)
-	private SchemeType schemeType;
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "financial_year_id", nullable = false)
+	private FinancialYear financialYear;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "scheme_type_id", nullable = true)
+	private DemandCode schemeType;
+
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false)
+	private BaseSchemeType baseSchemeType;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = true)
