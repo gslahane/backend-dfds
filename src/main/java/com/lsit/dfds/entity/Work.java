@@ -118,4 +118,9 @@ public class Work {
 	@Column(nullable = true)
 	private Boolean isNodalWork; // true = nodal, false = non-nodal
 
+	// Work.java (add inside the entity)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "ia_user_id", nullable = true)
+	private User implementingAgency; // IA assigned by district approvals
+
 }

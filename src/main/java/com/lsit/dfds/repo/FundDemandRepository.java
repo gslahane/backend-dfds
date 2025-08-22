@@ -137,4 +137,87 @@ public interface FundDemandRepository extends JpaRepository<FundDemand, Long> {
 			""")
 	List<FundDemand> findFiltered(@Param("financialYearId") Long financialYearId, @Param("districtId") Long districtId,
 			@Param("createdBy") String createdBy, @Param("status") DemandStatuses status, @Param("q") String q);
+
+	// District-wide demands, filtered
+	@Query("""
+			  select d from FundDemand d
+			  where d.isDelete = false
+			    and d.work.district.id = :districtId
+			    and (:fyId is null or d.financialYear.id = :fyId)
+			    and (:mlaId is null or d.work.recommendedByMla.id = :mlaId)
+			    and (:mlcId is null or d.work.recommendedByMlc.id = :mlcId)
+			    and (:status is null or d.status = :status)
+			""")
+	List<FundDemand> findDistrictDemands(@Param("districtId") Long districtId, @Param("fyId") Long fyId,
+			@Param("mlaId") Long mlaId, @Param("mlcId") Long mlcId, @Param("status") DemandStatuses status);
+
+	// Amount/Count helpers (district scope)
+	@Query("""
+			  select coalesce(sum(d.netPayable),0) from FundDemand d
+			  where d.isDelete=false and d.work.district.id=:districtId
+			    and (:fyId is null or d.financialYear.id=:fyId)
+			    and d.status=:status
+			""")
+	Double sumByDistrictAndStatus(@Param("districtId") Long districtId, @Param("fyId") Long fyId,
+			@Param("status") DemandStatuses status);
+
+	@Query("""
+			  select count(d) from FundDemand d
+			  where d.isDelete=false and d.work.district.id=:districtId
+			    and (:fyId is null or d.financialYear.id=:fyId)
+			    and d.status=:status
+			""")
+	Long countByDistrictAndStatus(@Param("districtId") Long districtId, @Param("fyId") Long fyId,
+			@Param("status") DemandStatuses status);
+
+	// Disbursed amount (state transfers)
+	@Query("""
+			  select coalesce(sum(d.netPayable),0) from FundDemand d
+			  where d.isDelete=false and d.work.district.id=:districtId
+			    and (:fyId is null or d.financialYear.id=:fyId)
+			    and d.status = com.lsit.dfds.enums.DemandStatuses.TRANSFERRED
+			""")
+	Double sumTransferredByDistrict(@Param("districtId") Long districtId, @Param("fyId") Long fyId);
+
+	// Per MLA/MLC disbursed
+	@Query("""
+			  select coalesce(sum(d.netPayable),0) from FundDemand d
+			  where d.isDelete=false
+			    and d.work.district.id=:districtId
+			    and (:fyId is null or d.financialYear.id=:fyId)
+			    and d.status = com.lsit.dfds.enums.DemandStatuses.TRANSFERRED
+			    and d.work.recommendedByMla.id = :mlaId
+			""")
+	Double sumTransferredForMla(@Param("districtId") Long districtId, @Param("fyId") Long fyId,
+			@Param("mlaId") Long mlaId);
+
+	@Query("""
+			  select coalesce(sum(d.netPayable),0) from FundDemand d
+			  where d.isDelete=false
+			    and d.work.district.id=:districtId
+			    and (:fyId is null or d.financialYear.id=:fyId)
+			    and d.status = com.lsit.dfds.enums.DemandStatuses.TRANSFERRED
+			    and d.work.recommendedByMlc.id = :mlcId
+			""")
+	Double sumTransferredForMlc(@Param("districtId") Long districtId, @Param("fyId") Long fyId,
+			@Param("mlcId") Long mlcId);
+
+	@Query("""
+			  select fd from FundDemand fd
+			    join fd.work w
+			  where fd.isDelete = false
+			    and fd.vendor.id = :vendorId
+			    and (:financialYearId is null or fd.financialYear.id = :financialYearId)
+			    and (:districtId is null or w.district.id = :districtId)
+			    and (:schemeId is null or w.scheme.id = :schemeId)
+			    and (:status is null or fd.status = :status)
+			    and (:search is null or lower(w.workName) like lower(concat('%',:search,'%'))
+			                     or lower(w.workCode) like lower(concat('%',:search,'%'))
+			                     or lower(fd.demandId) like lower(concat('%',:search,'%')))
+			  order by fd.createdAt desc
+			""")
+	List<FundDemand> findDemandsForVendor(@Param("vendorId") Long vendorId,
+			@Param("financialYearId") Long financialYearId, @Param("districtId") Long districtId,
+			@Param("schemeId") Long schemeId, @Param("status") DemandStatuses status, @Param("search") String search);
+
 }

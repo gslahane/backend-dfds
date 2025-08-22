@@ -96,4 +96,34 @@ public interface WorkRepository extends JpaRepository<Work, Long> {
 			@Param("talukaId") Long talukaId, @Param("financialYearId") Long financialYearId,
 			@Param("search") String search);
 
+	// flexible server-side filtering is nice-to-have; we’ll also filter in service
+	// for clarity
+	List<Work> findByDistrict_Id(Long districtId);
+
+	List<Work> findByRecommendedByMlc_Id(Long mlcId);
+
+	List<Work> findByImplementingAgency_Id(Long iaUserId);
+
+	@Query("""
+			  select w from Work w
+			  where w.district.id = :districtId
+			    and (:mlaId is null or w.recommendedByMla.id = :mlaId)
+			    and (:mlcId is null or w.recommendedByMlc.id = :mlcId)
+			    and (:fyId is null or (w.scheme.financialYear.id = :fyId))
+			""")
+	List<Work> findDistrictWorks(@Param("districtId") Long districtId, @Param("mlaId") Long mlaId,
+			@Param("mlcId") Long mlcId, @Param("fyId") Long fyId);
+
+	@Query("""
+			  select w from Work w
+			  where w.vendor.id = :vendorId
+			    and (:districtId is null or w.district.id = :districtId)
+			    and (:schemeId is null or w.scheme.id = :schemeId)
+			    and (:search is null or lower(w.workName) like lower(concat('%',:search,'%'))
+			                     or lower(w.workCode) like lower(concat('%',:search,'%')))
+			  order by w.createdAt desc
+			""")
+	List<Work> findWorksForVendor(@Param("vendorId") Long vendorId, @Param("districtId") Long districtId,
+			@Param("schemeId") Long schemeId, @Param("search") String search);
+
 }

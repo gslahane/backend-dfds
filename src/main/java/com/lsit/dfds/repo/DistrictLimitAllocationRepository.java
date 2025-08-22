@@ -44,4 +44,7 @@ public interface DistrictLimitAllocationRepository extends JpaRepository<Distric
 	 * id2, PlanType dap, Long id3);
 	 */
 
+	Optional<DistrictLimitAllocation> findByDistrict_IdAndPlanTypeAndSchemeType_IdAndFinancialYear_Id(Long districtId,
+			PlanType planType, Long demandCodeId, Long fyId);
+
 }

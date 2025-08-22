@@ -21,6 +21,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Data;
 
+//com.lsit.dfds.entity.User
 @Data
 @Entity
 @Table(name = "lsit_dfds_user")
@@ -31,25 +32,22 @@ public class User {
 
 	@Column(nullable = true)
 	private String fullname;
+
 	@Column(nullable = false, unique = true)
 	private String username; // required + unique
-	@Column(nullable = true)
-	private String agencyCode;
+
 	private Long mobile = 0L;
+
 	@Column(nullable = true)
 	private String email;
+
 	@Column(nullable = true)
 	private String designation;
+
 	@Column(nullable = false)
 	private String password; // required
 
-	// legacy (nullable)
-	@Column(nullable = true)
-	private String accountNumber;
-	@Column(nullable = true)
-	private String ifsc;
-	@Column(nullable = true)
-	private String bankName;
+// (REMOVED) legacy bank columns: accountNumber, ifsc, bankName — use UserBankAccount
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "under_id")
@@ -66,6 +64,7 @@ public class User {
 
 	@CreationTimestamp
 	private LocalDateTime createdAt;
+
 	@Column(nullable = true)
 	private String createdBy;
 

@@ -10,6 +10,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,18 +49,19 @@ public class AuthController {
 					new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 
-			Optional<User> userOpt = userRepository.findByUsername(loginRequest.getUsername());
-			if (userOpt.isEmpty()) {
-				audit.log(loginRequest.getUsername(), "LOGIN_FAILED", "User", null, "User not found");
-				return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username or password");
-			}
-			User user = userOpt.get();
+			User user = userRepository.findByUsername(loginRequest.getUsername())
+					.orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
 			String token = jwtUtil.generateToken(user.getUsername());
 
-			// keep existing response fields + add fullName
-			LoginResponse resp = new LoginResponse(token, user.getMobile(), user.getAgencyCode(),
-					user.getRole() != null ? user.getRole().name() : null, user.getDesignation(), user.getFullname() // NEW
+			// district (null-safe)
+			Long districtId = (user.getDistrict() != null) ? user.getDistrict().getId() : null;
+			String districtName = (user.getDistrict() != null) ? user.getDistrict().getDistrictName() : null;
+
+			LoginResponse resp = new LoginResponse(token, user.getMobile(), // <-- correct field
+					user.getRole() != null ? user.getRole().name() : null, user.getDesignation(), user.getFullname(),
+					districtId, // <-- id
+					districtName // <-- name
 			);
 
 			audit.log(user.getUsername(), "LOGIN_SUCCESS", "User", user.getId(), null);
@@ -110,21 +112,24 @@ class LoginRequest {
 }
 
 class LoginResponse {
-	private String token;
-	private Long mobile;
-	private String agencyCode;
-	private String role;
-	private String designation;
-	private String fullName; // NEW
+	private final String token;
+	private final Long mobile;
+//	private final String agencyCode;
+	private final String role;
+	private final String designation;
+	private final String fullName;
+	private final Long districtId; // NEW
+	private final String districtName; // NEW
 
-	public LoginResponse(String token, Long mobile, String agencyCode, String role, String designation,
-			String fullName) {
+	public LoginResponse(String token, Long mobile, String role, String designation, String fullName, Long districtId,
+			String districtName) {
 		this.token = token;
 		this.mobile = mobile;
-		this.agencyCode = agencyCode;
 		this.role = role;
 		this.designation = designation;
 		this.fullName = fullName;
+		this.districtId = districtId;
+		this.districtName = districtName;
 	}
 
 	public String getToken() {
@@ -133,10 +138,6 @@ class LoginResponse {
 
 	public Long getMobile() {
 		return mobile;
-	}
-
-	public String getAgencyCode() {
-		return agencyCode;
 	}
 
 	public String getRole() {
@@ -149,5 +150,13 @@ class LoginResponse {
 
 	public String getFullName() {
 		return fullName;
-	} // NEW
+	}
+
+	public Long getDistrictId() {
+		return districtId;
+	}
+
+	public String getDistrictName() {
+		return districtName;
+	}
 }

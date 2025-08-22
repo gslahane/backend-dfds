@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.lsit.dfds.dto.UserRegistrationDto;
-import com.lsit.dfds.entity.Constituency;
 import com.lsit.dfds.entity.District;
 import com.lsit.dfds.entity.MLA;
 import com.lsit.dfds.entity.MLC;
@@ -22,107 +21,120 @@ import com.lsit.dfds.repo.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
+//com.lsit.dfds.service.UserServiceImpl
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-	private final UserRepository userRepository;
-	private final DistrictRepository districtRepository;
-	private final ConstituencyRepository constituencyRepository;
-	private final MLARepository mlaRepository;
-	private final MLCRepository mlcRepository;
-	private final TalukaRepository talukaRepository; // if needed for HADP scope
+	private final UserRepository userRepo;
+	private final DistrictRepository districtRepo;
+	private final ConstituencyRepository constituencyRepo;
+	private final MLARepository mlaRepo;
+	private final MLCRepository mlcRepo;
+	private final TalukaRepository talukaRepo;
 	private final PasswordEncoder passwordEncoder;
-	private final BankAccountService bankAccountService;
+	private final BankAccountService bankAccountService; // you already created this helper
 	private final AuditService audit;
+
+	private static boolean isState(Roles r) {
+		return r != null && r.name().startsWith("STATE");
+	}
+
+	private static boolean isDistrictAny(Roles r) {
+		return r != null && r.name().startsWith("DISTRICT");
+	}
+
+	@Override
+	@Transactional
+	public User registerDistrictUser(UserRegistrationDto dto, String createdBy) {
+		// Force role group
+		if (dto.getRole() == null)
+			throw new RuntimeException("role is required");
+		var allowed = java.util.Set.of(Roles.DISTRICT_COLLECTOR, Roles.DISTRICT_DPO, Roles.DISTRICT_ADPO,
+				Roles.DISTRICT_ADMIN, Roles.DISTRICT_CHECKER, Roles.DISTRICT_MAKER);
+		if (!allowed.contains(dto.getRole())) {
+			throw new RuntimeException("Invalid role for /district-staff registration");
+		}
+		return registerUser(dto, createdBy);
+	}
 
 	@Override
 	@Transactional
 	public User registerUser(UserRegistrationDto dto, String createdBy) {
-		// ---------- Creator & permissions ----------
-		User creator = userRepository.findByUsername(createdBy)
-				.orElseThrow(() -> new RuntimeException("Creator not found"));
+		// creator
+		User creator = userRepo.findByUsername(createdBy).orElseThrow(() -> new RuntimeException("Creator not found"));
+		Roles cr = creator.getRole();
 
-		boolean creatorIsState = creator.getRole().name().startsWith("STATE");
-		boolean creatorIsDist = creator.getRole().name().startsWith("DISTRICT");
-
-		if (creatorIsState) {
-			// STATE can create everything, including MLA/MLC/HADP
-		} else if (creatorIsDist) {
-			// District can create IA and district makers/checkers
-			if (dto.getRole() != Roles.IA_ADMIN && dto.getRole() != Roles.DISTRICT_CHECKER
-					&& dto.getRole() != Roles.DISTRICT_MAKER) {
-				throw new RuntimeException("District can only create IA_ADMIN / DISTRICT_CHECKER / DISTRICT_MAKER");
+		// permissions
+		if (isState(cr)) {
+			// STATE can create any role
+		} else if (isDistrictAny(cr)) {
+			// District can create district staff + IA admins
+			var allowed = java.util.Set.of(Roles.DISTRICT_COLLECTOR, Roles.DISTRICT_DPO, Roles.DISTRICT_ADPO,
+					Roles.DISTRICT_ADMIN, Roles.DISTRICT_CHECKER, Roles.DISTRICT_MAKER, Roles.IA_ADMIN);
+			if (!allowed.contains(dto.getRole())) {
+				throw new RuntimeException("District can only create district staff / IA_ADMIN");
 			}
+		} else if (cr == Roles.IA_ADMIN) {
+			// IA can optionally create nothing here (vendors are handled in VendorService)
+			throw new RuntimeException("IA is not allowed to register users here");
 		} else {
 			throw new RuntimeException("Unauthorized creator role");
 		}
 
-		// ---------- Basic validations ----------
-		if (dto.getRole() == null)
-			throw new RuntimeException("Role is required");
+		// basic validations
 		if (dto.getUsername() == null || dto.getUsername().isBlank())
 			throw new RuntimeException("Username is required");
 		if (dto.getPassword() == null || dto.getPassword().isBlank())
 			throw new RuntimeException("Password is required");
-		if (userRepository.findByUsername(dto.getUsername()).isPresent())
+		if (userRepo.findByUsername(dto.getUsername()).isPresent())
 			throw new RuntimeException("Username already taken");
+		if (dto.getRole() == null)
+			throw new RuntimeException("Role is required");
 
-		// ---------- Resolve district if required ----------
+		// district scoping when needed
 		District district = null;
-		// For DISTRICT_* and IA_ADMIN, a district is mandatory
-		if (dto.getRole().name().startsWith("DISTRICT") || dto.getRole() == Roles.IA_ADMIN) {
+		if (isDistrictAny(dto.getRole()) || dto.getRole() == Roles.IA_ADMIN || dto.getRole() == Roles.HADP_ADMIN) {
 			Long did = dto.getDistrictId() != null ? dto.getDistrictId()
-					: (creatorIsDist ? creator.getDistrict().getId() : null);
+					: (isDistrictAny(cr) && creator.getDistrict() != null ? creator.getDistrict().getId() : null);
 			if (did == null)
-				throw new RuntimeException("districtId is required for DISTRICT_* and IA_ADMIN");
-			district = districtRepository.findById(did).orElseThrow(() -> new RuntimeException("District not found"));
-		} else if (creatorIsDist && dto.getDistrictId() == null) {
-			// inherit creator's district if useful
-			district = creator.getDistrict();
-		} else if (dto.getDistrictId() != null) {
-			district = districtRepository.findById(dto.getDistrictId())
-					.orElseThrow(() -> new RuntimeException("District not found"));
+				throw new RuntimeException("districtId is required for this role");
+			district = districtRepo.findById(did).orElseThrow(() -> new RuntimeException("District not found"));
 		}
 
-		// ---------- Create User ----------
-		User user = new User();
-		user.setFullname(dto.getFullname());
-		user.setUsername(dto.getUsername());
-		user.setEmail(dto.getEmail());
-		user.setDesignation(dto.getDesignation());
-		user.setPassword(passwordEncoder.encode(dto.getPassword()));
-		user.setMobile(dto.getMobile());
-		user.setAgencyCode(dto.getAgencyCode());
-		user.setRole(dto.getRole());
-		user.setStatus(Statuses.ACTIVE);
-		user.setCreatedBy(createdBy);
-		user.setDistrict(district);
+		// Create user
+		User u = new User();
+		u.setFullname(dto.getFullname());
+		u.setUsername(dto.getUsername());
+		u.setEmail(dto.getEmail());
+		u.setDesignation(dto.getDesignation());
+		u.setPassword(passwordEncoder.encode(dto.getPassword()));
+		u.setMobile(dto.getMobile());
+		u.setRole(dto.getRole());
+		u.setStatus(Statuses.ACTIVE);
+		u.setCreatedBy(createdBy);
+		u.setDistrict(district);
 
-		if (dto.getRole() == Roles.IA_ADMIN && creatorIsDist) {
-			user.setSupervisor(creator); // IA under District
+		if (dto.getRole() == Roles.IA_ADMIN && isDistrictAny(cr)) {
+			u.setSupervisor(creator);
 		}
 
-		User saved = userRepository.save(user);
+		User saved = userRepo.save(u);
 
-		// ---------- Role-specific domain linking/creation ----------
+		// Role-specific linking/creation
 		switch (dto.getRole()) {
 		case MLA -> {
 			if (dto.getExistingMlaId() != null) {
-				// link to existing MLA
-				MLA mla = mlaRepository.findById(dto.getExistingMlaId())
+				var mla = mlaRepo.findById(dto.getExistingMlaId())
 						.orElseThrow(() -> new RuntimeException("Existing MLA not found"));
 				mla.setUser(saved);
-				mlaRepository.save(mla);
+				mlaRepo.save(mla);
 			} else {
-				// create a new MLA record
 				if (dto.getConstituencyId() == null || dto.getMlaName() == null || dto.getMlaName().isBlank())
 					throw new RuntimeException("For new MLA, constituencyId and mlaName are required");
-
-				Constituency cons = constituencyRepository.findById(dto.getConstituencyId())
+				var cons = constituencyRepo.findById(dto.getConstituencyId())
 						.orElseThrow(() -> new RuntimeException("Constituency not found"));
-
-				MLA mla = new MLA();
+				var mla = new MLA();
 				mla.setMlaName(dto.getMlaName());
 				mla.setParty(dto.getMlaParty());
 				mla.setContactNumber(dto.getMlaContactNumber());
@@ -131,29 +143,19 @@ public class UserServiceImpl implements UserService {
 				mla.setStatus(Statuses.ACTIVE);
 				mla.setConstituency(cons);
 				mla.setUser(saved);
-				mlaRepository.save(mla);
+				mlaRepo.save(mla);
 			}
-		}
-		case MLA_REP -> {
-			if (dto.getRepForMlaId() == null)
-				throw new RuntimeException("repForMlaId is required for MLA_REP");
-			MLA mla = mlaRepository.findById(dto.getRepForMlaId())
-					.orElseThrow(() -> new RuntimeException("MLA not found"));
-			// If you need a persistent relation "representativeOf", add such a field/table.
-			// For now, user role is MLA_REP; use repForMlaId in business logic where
-			// needed.
 		}
 		case MLC -> {
 			if (dto.getExistingMlcId() != null) {
-				MLC mlc = mlcRepository.findById(dto.getExistingMlcId())
+				var mlc = mlcRepo.findById(dto.getExistingMlcId())
 						.orElseThrow(() -> new RuntimeException("Existing MLC not found"));
 				mlc.setUser(saved);
-				mlcRepository.save(mlc);
+				mlcRepo.save(mlc);
 			} else {
 				if (dto.getMlcName() == null || dto.getMlcName().isBlank())
 					throw new RuntimeException("For new MLC, mlcName is required");
-
-				MLC mlc = new MLC();
+				var mlc = new MLC();
 				mlc.setMlcName(dto.getMlcName());
 				mlc.setCategory(dto.getMlcCategory());
 				mlc.setContactNumber(dto.getMlcContactNumber());
@@ -161,37 +163,30 @@ public class UserServiceImpl implements UserService {
 				mlc.setTerm(dto.getMlcTerm());
 				mlc.setRegion(dto.getMlcRegion());
 				mlc.setStatus(Statuses.ACTIVE);
-				// Optional access lists
 				if (dto.getAccessibleDistrictIds() != null && !dto.getAccessibleDistrictIds().isEmpty()) {
-					var dists = districtRepository.findAllById(dto.getAccessibleDistrictIds());
-					mlc.setAccessibleDistricts(dists);
+					mlc.setAccessibleDistricts(districtRepo.findAllById(dto.getAccessibleDistrictIds()));
 				}
 				if (dto.getAccessibleConstituencyIds() != null && !dto.getAccessibleConstituencyIds().isEmpty()) {
-					var cons = constituencyRepository.findAllById(dto.getAccessibleConstituencyIds());
-					mlc.setAccessibleConstituencies(cons);
+					mlc.setAccessibleConstituencies(constituencyRepo.findAllById(dto.getAccessibleConstituencyIds()));
 				}
 				mlc.setUser(saved);
-				mlcRepository.save(mlc);
+				mlcRepo.save(mlc);
 			}
 		}
 		case HADP_ADMIN -> {
-			// optional scoping to a taluka (if provided)
 			if (dto.getTalukaId() != null) {
-				var taluka = talukaRepository.findById(dto.getTalukaId())
+				var taluka = talukaRepo.findById(dto.getTalukaId())
 						.orElseThrow(() -> new RuntimeException("Taluka not found"));
-				// You can store user->taluka in a mapping table if needed. For now, district is
-				// enough.
-				if (saved.getDistrict() == null)
-					saved.setDistrict(taluka.getDistrict());
+				// District is already set; taluka mapping can be used elsewhere as needed.
 			}
 		}
 		default -> {
-			/* DISTRICT_*, IA_ADMIN, STATE_*, DIVISION_ADMIN handled by User only */ }
+			/* district staff / IA_ADMIN: nothing extra */ }
 		}
 
-		// ---------- Optional bank (null-safe) ----------
+		// Optional bank capture → UserBankAccount (NOT in User)
 		if (dto.getBankAccountNumber() != null && dto.getBankIfsc() != null) {
-			UserBankAccount acc = new UserBankAccount();
+			var acc = new UserBankAccount();
 			acc.setUser(saved);
 			acc.setAccountHolderName(saved.getFullname());
 			acc.setAccountNumber(dto.getBankAccountNumber());
@@ -204,7 +199,6 @@ public class UserServiceImpl implements UserService {
 
 		audit.log(createdBy, "REGISTER_USER", "User", saved.getId(),
 				"{\"username\":\"" + saved.getUsername() + "\",\"role\":\"" + saved.getRole() + "\"}");
-
 		return saved;
 	}
 }
