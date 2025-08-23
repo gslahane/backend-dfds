@@ -1,14 +1,24 @@
 package com.lsit.dfds.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.lsit.dfds.dto.UserDto;
+import com.lsit.dfds.dto.UserFilterDto;
 import com.lsit.dfds.dto.UserRegistrationDto;
 import com.lsit.dfds.enums.Roles;
+import com.lsit.dfds.enums.Statuses;
+import com.lsit.dfds.service.DistrictUserService;
 import com.lsit.dfds.service.UserService;
 import com.lsit.dfds.utils.JwtUtil;
 
@@ -21,6 +31,7 @@ public class UserController {
 
 	private final UserService userService;
 	private final JwtUtil jwt;
+	private final DistrictUserService districtUserService;
 
 	// STATE: can register district leadership/staff
 	@PostMapping("/district-staff")
@@ -67,5 +78,19 @@ public class UserController {
 		String createdBy = jwt.extractUsername(auth.substring(7));
 		dto.setRole(Roles.HADP_ADMIN);
 		return ResponseEntity.ok(userService.registerUser(dto, createdBy));
+	}
+
+	// Get users list based on filters
+	@GetMapping("/district-staff-list")
+	public ResponseEntity<List<UserDto>> getUsers(@RequestBody UserFilterDto filter) {
+		List<UserDto> users = districtUserService.getUsers(filter);
+		return ResponseEntity.ok(users);
+	}
+
+	// Activate/Deactivate User
+	@PutMapping("/{userId}/status")
+	public ResponseEntity<?> updateUserStatus(@PathVariable Long userId, @RequestParam Statuses status) {
+		districtUserService.updateUserStatus(userId, status);
+		return ResponseEntity.ok("User status updated successfully");
 	}
 }
