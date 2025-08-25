@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.lsit.dfds.enums.WorkStatuses;
 
 import jakarta.persistence.CollectionTable;
@@ -51,8 +52,11 @@ public class Work {
 	@Column(nullable = true)
 	private String workOrderLetterUrl;
 
-	@Column(nullable = true)
-	private String financialYear;
+	// ✅ Proper relation to FinancialYear (FK: financial_year_id)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "financial_year_id", nullable = true)
+	@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
+	private FinancialYear financialYear;
 
 	@Column(nullable = true)
 	private LocalDate workStartDate;
@@ -76,6 +80,10 @@ public class Work {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = true)
 	private WorkStatuses status;
+
+	// ✅ New: URL to stored recommendation letter (uploaded during recommendation)
+	@Column(nullable = true)
+	private String recommendationLetterUrl;
 
 	@CreationTimestamp
 	private LocalDateTime createdAt;

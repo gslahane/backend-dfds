@@ -70,5 +70,6 @@ public class User {
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "district_id")
+	@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler", "users" }) // Ignore circular references
 	private District district;
 }

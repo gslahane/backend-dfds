@@ -111,40 +111,74 @@ public class DropdownServiceImpl implements DropdownService {
 	}
 
 	@Override
-	public List<Work> getWorksBySchemeYearAndDistrict(String username, Long schemeId, String financialYear,
+	public List<Work> getWorksBySchemeYearAndDistrict(String username, Long schemeId, String financialYear, // label or
+																											// numeric
+																											// id
 			Long districtId) {
-		Optional<User> userOpt = userRepository.findByUsername(username);
-		if (userOpt.isEmpty()) {
-			throw new RuntimeException("User not found");
-		}
+		User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
 
-		User user = userOpt.get();
 		Roles role = user.getRole();
 
+		// Resolve district
 		Long finalDistrictId = districtId;
-
-		// ✅ If user is District Admin or IA Admin, take district from user (ignore
-		// frontend)
-		if (role == Roles.DISTRICT_ADMIN || role == Roles.DISTRICT_MAKER || role == Roles.DISTRICT_CHECKER
-				|| role == Roles.IA_ADMIN) {
-
-			if (user.getSupervisor() == null || user.getSupervisor().getSupervisor() == null) {
+		if (isDistrictOrIa(role)) {
+			if (user.getDistrict() == null) {
 				throw new RuntimeException("District mapping missing for this user");
 			}
-
-			// Fetch districtId from user hierarchy (or directly from user if User has
-			// district)
 			finalDistrictId = user.getDistrict().getId();
+		} else if (isState(role)) {
+			if (finalDistrictId == null) {
+				throw new RuntimeException("District ID must be provided for state-level users");
+			}
 		}
 
-		// ✅ For State roles, use districtId from frontend (must be provided)
-		if ((role == Roles.STATE_ADMIN || role == Roles.STATE_CHECKER || role == Roles.STATE_MAKER)
-				&& finalDistrictId == null) {
-			throw new RuntimeException("District ID must be provided for state-level users");
+		if (schemeId == null) {
+			throw new RuntimeException("schemeId is required");
+		}
+		if (financialYear == null || financialYear.isBlank()) {
+			throw new RuntimeException("financialYear is required");
 		}
 
-		return workRepository.findByScheme_IdAndFinancialYearAndScheme_Districts_Id(schemeId, financialYear,
+		Long financialYearId = resolveFinancialYearId(financialYear);
+
+		return workRepository.findByScheme_IdAndFinancialYear_IdAndDistrict_Id(schemeId, financialYearId,
 				finalDistrictId);
+	}
+
+	private boolean isState(Roles r) {
+		return r != null && r.name().startsWith("STATE");
+	}
+
+	private boolean isDistrictOrIa(Roles r) {
+		return r == Roles.DISTRICT_COLLECTOR || r == Roles.DISTRICT_DPO || r == Roles.DISTRICT_ADPO
+				|| r == Roles.DISTRICT_ADMIN || r == Roles.DISTRICT_CHECKER || r == Roles.DISTRICT_MAKER
+				|| r == Roles.IA_ADMIN;
+	}
+
+	/** Accepts "2025-26", "2025-2026", or a numeric string (treated as FY id). */
+	private Long resolveFinancialYearId(String fy) {
+		String v = normalizeFy(fy);
+		// If it's all digits, treat as FY id
+		if (v.matches("^\\d+$")) {
+			return Long.parseLong(v);
+		}
+		// Else treat as the FY label and look up the entity
+		return financialYearRepository.findByFinacialYearIgnoreCase(v)
+				.orElseThrow(() -> new RuntimeException("Financial year not found: " + fy)).getId();
+	}
+
+	/** Normalizes short form "2025-26" to "2025-2026" for consistent lookup. */
+	private String normalizeFy(String s) {
+		if (s == null)
+			return null;
+		String t = s.trim().replace('–', '-').replace('—', '-');
+		if (t.matches("^\\d{4}-\\d{2}$")) {
+			int start = Integer.parseInt(t.substring(0, 4));
+			int end2 = Integer.parseInt(t.substring(5, 7));
+			int end = (start / 100) * 100 + end2; // 2025-26 -> 2026
+			return start + "-" + end;
+		}
+		return t;
 	}
 
 	@Override

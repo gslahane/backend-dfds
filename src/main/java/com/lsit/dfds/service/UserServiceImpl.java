@@ -1,10 +1,17 @@
 package com.lsit.dfds.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.lsit.dfds.dto.StateUserCreateDto;
+import com.lsit.dfds.dto.UserBankAccountDto;
+import com.lsit.dfds.dto.UserDto;
 import com.lsit.dfds.dto.UserRegistrationDto;
+import com.lsit.dfds.dto.UserWithBankDetailsDto;
 import com.lsit.dfds.entity.District;
 import com.lsit.dfds.entity.MLA;
 import com.lsit.dfds.entity.MLC;
@@ -17,6 +24,7 @@ import com.lsit.dfds.repo.DistrictRepository;
 import com.lsit.dfds.repo.MLARepository;
 import com.lsit.dfds.repo.MLCRepository;
 import com.lsit.dfds.repo.TalukaRepository;
+import com.lsit.dfds.repo.UserBankAccountRepository;
 import com.lsit.dfds.repo.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -35,6 +43,7 @@ public class UserServiceImpl implements UserService {
 	private final PasswordEncoder passwordEncoder;
 	private final BankAccountService bankAccountService; // you already created this helper
 	private final AuditService audit;
+	private final UserBankAccountRepository bankAccountRepository;
 
 	private static boolean isState(Roles r) {
 		return r != null && r.name().startsWith("STATE");
@@ -42,6 +51,90 @@ public class UserServiceImpl implements UserService {
 
 	private static boolean isDistrictAny(Roles r) {
 		return r != null && r.name().startsWith("DISTRICT");
+	}
+
+	private UserDto toUserDto(User user) {
+		UserDto dto = new UserDto();
+		dto.setUserId(user.getId());
+		dto.setFullname(user.getFullname());
+		dto.setUsername(user.getUsername());
+		dto.setMobile(user.getMobile());
+		dto.setEmail(user.getEmail());
+		dto.setDesignation(user.getDesignation());
+		dto.setRole(user.getRole());
+		dto.setStatus(user.getStatus());
+		if (user.getDistrict() != null) {
+			dto.setDistrictId(user.getDistrict().getId());
+			dto.setDistrictName(user.getDistrict().getDistrictName());
+		}
+		return dto;
+	}
+
+	// src/main/java/com/lsit/dfds/service/UserServiceImpl.java
+	@Override
+	@Transactional
+	public UserDto registerStateUser(StateUserCreateDto dto, String createdBy) {
+		// Creator permissions
+		User creator = userRepo.findByUsername(createdBy).orElseThrow(() -> new RuntimeException("Creator not found"));
+		if (creator.getRole() != Roles.STATE_ADMIN) {
+			throw new RuntimeException("Only STATE_ADMIN can create state users");
+		}
+
+		// Validate role
+		if (dto.getRole() == null)
+			throw new RuntimeException("role is required");
+		if (!(dto.getRole() == Roles.STATE_ADMIN || dto.getRole() == Roles.STATE_CHECKER
+				|| dto.getRole() == Roles.STATE_MAKER)) {
+			throw new RuntimeException("Invalid role for /state registration");
+		}
+
+		// Uniqueness
+		if (userRepo.findByUsername(dto.getUsername()).isPresent())
+			throw new RuntimeException("Username already taken");
+
+		// Optional supervisor must be STATE_*
+		User supervisor = null;
+		if (dto.getSupervisorUserId() != null) {
+			supervisor = userRepo.findById(dto.getSupervisorUserId())
+					.orElseThrow(() -> new RuntimeException("Supervisor user not found"));
+			if (!isState(supervisor.getRole())) {
+				throw new RuntimeException("Supervisor must be a STATE_* user");
+			}
+		}
+
+		// Create user
+		User u = new User();
+		u.setFullname(dto.getFullname());
+		u.setUsername(dto.getUsername());
+		u.setEmail(dto.getEmail());
+		u.setDesignation(dto.getDesignation());
+		u.setPassword(passwordEncoder.encode(dto.getPassword()));
+		u.setMobile(dto.getMobile() == null ? null : Long.valueOf(dto.getMobile()));
+		u.setRole(dto.getRole());
+		u.setStatus(Statuses.ACTIVE);
+		u.setCreatedBy(createdBy);
+		u.setSupervisor(supervisor);
+		// state users have district = null
+
+		User saved = userRepo.save(u);
+
+		// ---------- NEW: Optional bank capture ----------
+		if (dto.getBankAccountNumber() != null && dto.getBankIfsc() != null) {
+			var acc = new UserBankAccount();
+			acc.setUser(saved);
+			acc.setAccountHolderName(saved.getFullname());
+			acc.setAccountNumber(dto.getBankAccountNumber());
+			acc.setIfsc(dto.getBankIfsc());
+			acc.setBankName(dto.getBankName());
+			acc.setBranch(dto.getBankBranch());
+			acc.setAccountType(dto.getAccountType()); // "SB" / "CA"
+			bankAccountService.setPrimary(saved.getId(), acc, createdBy);
+		}
+
+		audit.log(createdBy, "REGISTER_STATE_USER", "User", saved.getId(),
+				"{\"username\":\"" + saved.getUsername() + "\",\"role\":\"" + saved.getRole() + "\"}");
+
+		return toUserDto(saved);
 	}
 
 	@Override
@@ -201,4 +294,45 @@ public class UserServiceImpl implements UserService {
 				"{\"username\":\"" + saved.getUsername() + "\",\"role\":\"" + saved.getRole() + "\"}");
 		return saved;
 	}
+
+	@Override
+	public List<UserWithBankDetailsDto> getIAUsersWithBankDetails() {
+		List<User> allUsers = userRepo.findAll();
+
+		List<User> iaUsers = allUsers.stream().filter(user -> user.getRole().name().startsWith("IA_"))
+				.collect(Collectors.toList());
+
+		return iaUsers.stream().map(user -> {
+			UserWithBankDetailsDto dto = new UserWithBankDetailsDto();
+			dto.setId(user.getId());
+			dto.setFullname(user.getFullname());
+			dto.setUsername(user.getUsername());
+			dto.setMobile(user.getMobile());
+			dto.setEmail(user.getEmail());
+			dto.setDesignation(user.getDesignation());
+			dto.setRole(user.getRole());
+			dto.setStatus(user.getStatus());
+			dto.setCreatedAt(user.getCreatedAt());
+			dto.setCreatedBy(user.getCreatedBy());
+			dto.setDistrictName(user.getDistrict() != null ? user.getDistrict().getDistrictName() : null);
+
+			List<UserBankAccount> accounts = bankAccountRepository.findByUserId(user.getId());
+			dto.setBankAccounts(accounts.stream().map(acc -> {
+				UserBankAccountDto b = new UserBankAccountDto();
+				b.setAccountHolderName(acc.getAccountHolderName());
+				b.setAccountNumber(acc.getAccountNumber());
+				b.setIfsc(acc.getIfsc());
+				b.setBankName(acc.getBankName());
+				b.setBranch(acc.getBranch());
+				b.setAccountType(acc.getAccountType());
+				b.setIsPrimary(acc.getIsPrimary());
+				b.setVerified(acc.getVerified());
+				b.setStatus(acc.getStatus());
+				return b;
+			}).collect(Collectors.toList()));
+
+			return dto;
+		}).collect(Collectors.toList());
+	}
+
 }

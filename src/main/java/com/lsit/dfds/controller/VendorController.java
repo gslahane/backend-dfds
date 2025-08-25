@@ -11,10 +11,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.lsit.dfds.dto.VendorDto;
 import com.lsit.dfds.dto.VendorRequestDto;
-import com.lsit.dfds.entity.Vendor;
 import com.lsit.dfds.service.VendorService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -67,7 +68,10 @@ public class VendorController {
 	}
 
 	@GetMapping
-	public ResponseEntity<List<Vendor>> getAll() {
-		return ResponseEntity.ok(vendorService.getAllVendors());
+	public ResponseEntity<List<VendorDto>> getAllVendors(@RequestParam(required = false) Long districtId,
+			@RequestParam(required = false) Long vendorId, @RequestParam(required = false) String search) {
+
+		List<VendorDto> vendorDtos = vendorService.getVendorDetails(districtId, vendorId, search);
+		return ResponseEntity.ok(vendorDtos);
 	}
 }

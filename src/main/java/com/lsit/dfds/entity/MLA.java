@@ -5,6 +5,7 @@ import java.util.List;
 import com.lsit.dfds.enums.Statuses;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -36,6 +37,10 @@ public class MLA {
 
 	@Enumerated(EnumType.STRING)
 	private Statuses status;
+
+	// ✅ New: store the latest activation/deactivation letter URL
+	@Column(nullable = true)
+	private String statusChangeLetterUrl;
 
 	@OneToOne
 	@JoinColumn(name = "constituency_id", nullable = false)

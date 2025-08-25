@@ -46,6 +46,10 @@ public class MLC {
 	@Enumerated(EnumType.STRING)
 	private Statuses status;
 
+	// ✅ New: latest activation/deactivation letter URL
+	@Column(nullable = true)
+	private String statusChangeLetterUrl;
+
 	@ManyToMany
 	@JoinTable(name = "mlc_district_access", joinColumns = @JoinColumn(name = "mlc_id"), inverseJoinColumns = @JoinColumn(name = "district_id"))
 	private List<District> accessibleDistricts;

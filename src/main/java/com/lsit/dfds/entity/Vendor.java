@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
@@ -117,6 +119,7 @@ public class Vendor {
 
 	@OneToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id", unique = true)
+	@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler", "vendor" }) // Ignore circular references
 	private User user; // ⬅️ link login user to vendor (optional, unique)
 
 }

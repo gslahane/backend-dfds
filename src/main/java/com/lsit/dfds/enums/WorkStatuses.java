@@ -3,7 +3,7 @@ package com.lsit.dfds.enums;
 
 public enum WorkStatuses {
 	// existing
-	APPROVED, REJECTED, CANCELLED,
+	APPROVED, REJECTED, CANCELLED, PENDING,
 
 	// new workflow stages (safe: EnumType.STRING everywhere)
 	PROPOSED, // MLA submitted
