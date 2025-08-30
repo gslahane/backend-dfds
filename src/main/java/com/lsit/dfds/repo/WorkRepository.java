@@ -156,4 +156,7 @@ public interface WorkRepository extends JpaRepository<Work, Long> {
 
 	Long countByDistrict_IdAndFinancialYear_IdAndVendorIsNotNull(Long districtId, Long financialYearId);
 
+	// Find works by status
+	List<Work> findByStatus(WorkStatuses status);
+
 }

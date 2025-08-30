@@ -38,19 +38,18 @@ public class MyConfig implements WebMvcConfigurer {
 		return config.getAuthenticationManager();
 	}
 
+	// com.lsit.dfds.config.MyConfig
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		http.cors().and().csrf().disable().authorizeHttpRequests(auth -> auth
-				// ✅ Allow Swagger URLs without authentication
-				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger-resources/**",
-						"/webjars/**")
-				.permitAll()
-
-				// ✅ Allow login without JWT
-				.requestMatchers("/api/auth/login").permitAll()
-
-				// ✅ Require JWT for everything else
-				.anyRequest().authenticated())
+		http.cors().and().csrf().disable()
+				.authorizeHttpRequests(auth -> auth.requestMatchers("/v3/api-docs/**", "/v3/api-docs.yaml",
+						"/swagger-ui/**", "/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/error", // helpful
+																												// when
+																												// no
+																												// token
+						"/api/auth/login" // your login endpoint
+				// if your real login path differs, whitelist that too
+				).permitAll().anyRequest().authenticated())
 				.sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authenticationProvider(authenticationProvider())
 				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

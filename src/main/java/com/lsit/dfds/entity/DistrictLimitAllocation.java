@@ -23,27 +23,25 @@ import lombok.Data;
 
 @Data
 @Entity
+//com.lsit.dfds.entity.DistrictLimitAllocation
 @Table(name = "lsit_dfds_district_limit_allocation", uniqueConstraints = @UniqueConstraint(columnNames = {
 		"district_id", "financial_year_id", "plan_type", "scheme_type_id" }))
 public class DistrictLimitAllocation {
-
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	// ✅ Many districts can have many allocations
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "district_id", nullable = false)
 	private District district;
 
-	// ✅ Required for DAP row
 	@Enumerated(EnumType.STRING)
 	@Column(name = "plan_type", nullable = false)
 	private PlanType planType;
 
-	// ✅ DemandCode (Revenue/Capital/Debt), required for DAP allocation row
+// CHANGED: was nullable=false. For MLA/MLC/HADP this will be NULL.
 	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "scheme_type_id", nullable = false)
+	@JoinColumn(name = "scheme_type_id", nullable = true)
 	private DemandCode schemeType;
 
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -51,13 +49,11 @@ public class DistrictLimitAllocation {
 	private FinancialYear financialYear;
 
 	@Column(nullable = false)
-	private Double allocatedLimit = 0.0; // Allocated by State
-
+	private Double allocatedLimit = 0.0;
 	@Column(nullable = false)
-	private Double utilizedLimit = 0.0; // Consumed downstream
-
+	private Double utilizedLimit = 0.0;
 	@Column(nullable = false)
-	private Double remainingLimit = 0.0; // allocated - utilized
+	private Double remainingLimit = 0.0;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = true)
@@ -65,7 +61,6 @@ public class DistrictLimitAllocation {
 
 	@Column(nullable = true)
 	private String remarks;
-
 	@Column(nullable = true)
 	private String createdBy;
 

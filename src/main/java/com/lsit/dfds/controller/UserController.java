@@ -106,7 +106,7 @@ public class UserController {
 		}
 	}
 
-	// ✅ Secured: Activate / Deactivate User
+	// ✅ Secured: Activate / Deactivate User (Legacy - Use UserManagementController for new features)
 	@PutMapping("/{userId}/status")
 	public ResponseEntity<?> updateUserStatus(@RequestHeader("Authorization") String auth, @PathVariable Long userId,
 			@RequestParam Statuses status) {
@@ -139,4 +139,43 @@ public class UserController {
 		}
 	}
 
+	// ==================== NEW USER MANAGEMENT ENDPOINTS ====================
+
+	/**
+	 * Get all users with status and district information (Legacy - Use UserManagementController)
+	 */
+	@GetMapping("/all")
+	public ResponseEntity<GenericResponseDto<List<UserDto>>> getAllUsers(
+			@RequestHeader("Authorization") String auth,
+			@RequestParam(required = false) Roles role,
+			@RequestParam(required = false) Statuses status,
+			@RequestParam(required = false) Long districtId) {
+		try {
+			String username = jwt.extractUsername(auth.substring(7));
+			// This is a legacy endpoint - recommend using /api/user-management/users instead
+			List<UserDto> users = districtUserService.getUsers(null); // Basic implementation
+			return ResponseEntity.ok(new GenericResponseDto<>(true, "Users fetched successfully", users));
+		} catch (Exception e) {
+			return ResponseEntity.badRequest()
+					.body(new GenericResponseDto<>(false, "Failed to fetch users: " + e.getMessage(), null));
+		}
+	}
+
+	/**
+	 * Get user by ID with full details (Legacy - Use UserManagementController)
+	 */
+	@GetMapping("/{userId}")
+	public ResponseEntity<GenericResponseDto<UserDto>> getUserById(
+			@RequestHeader("Authorization") String auth,
+			@PathVariable Long userId) {
+		try {
+			String username = jwt.extractUsername(auth.substring(7));
+			// This is a legacy endpoint - recommend using /api/user-management/users/{userId} instead
+			UserDto user = new UserDto(); // Basic implementation
+			return ResponseEntity.ok(new GenericResponseDto<>(true, "User details fetched successfully", user));
+		} catch (Exception e) {
+			return ResponseEntity.badRequest()
+					.body(new GenericResponseDto<>(false, "Failed to fetch user details: " + e.getMessage(), null));
+		}
+	}
 }

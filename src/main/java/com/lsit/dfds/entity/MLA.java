@@ -9,12 +9,14 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -46,10 +48,22 @@ public class MLA {
 	@JoinColumn(name = "constituency_id", nullable = false)
 	private Constituency constituency;
 
+	// MLA.java
+	/*
+	 * @ManyToOne(fetch = FetchType.LAZY, optional = false)
+	 * 
+	 * @JoinColumn(name = "default_scheme_id", nullable = false) private Schemes
+	 * defaultScheme;
+	 */
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = true)
+	@JoinColumn(name = "default_scheme_id", nullable = true)
+	private Schemes defaultScheme;
+
 	// ✅ MLA can recommend multiple schemes
-	@ManyToMany
-	@JoinTable(name = "mla_schemes", joinColumns = @JoinColumn(name = "mla_id"), inverseJoinColumns = @JoinColumn(name = "scheme_id"))
-	private List<Schemes> schemes;
+//	@ManyToMany
+//	@JoinTable(name = "mla_schemes", joinColumns = @JoinColumn(name = "mla_id"), inverseJoinColumns = @JoinColumn(name = "scheme_id"))
+//	private List<Schemes> schemes;
 
 	@OneToMany(mappedBy = "recommendedByMla", cascade = CascadeType.ALL)
 	private List<Work> recommendedWorks;

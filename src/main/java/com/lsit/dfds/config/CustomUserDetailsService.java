@@ -24,13 +24,18 @@ public class CustomUserDetailsService implements UserDetailsService {
 	@Override
 	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 		User user = userRepository.findByUsername(username)
-				.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+				.orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
-		if (user.getStatus() == null || user.getStatus() != Statuses.ACTIVE) {
-			throw new UsernameNotFoundException("User is not active");
+		// Check if user is active and enabled
+		if (user.getStatus() == null || 
+			user.getStatus() == Statuses.INACTIVE || 
+			user.getStatus() == Statuses.DESABLE || 
+			user.getStatus() == Statuses.CLOSED) {
+			throw new UsernameNotFoundException("User is not active or has been disabled: " + username);
 		}
+		
 		if (user.getRole() == null) {
-			throw new UsernameNotFoundException("User role not assigned");
+			throw new UsernameNotFoundException("User role not assigned: " + username);
 		}
 
 		Set<GrantedAuthority> authorities = Collections

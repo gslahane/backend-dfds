@@ -58,10 +58,23 @@ public class MLC {
 	@JoinTable(name = "mlc_constituency_access", joinColumns = @JoinColumn(name = "mlc_id"), inverseJoinColumns = @JoinColumn(name = "constituency_id"))
 	private List<Constituency> accessibleConstituencies;
 
-	// ✅ Add Scheme Mapping
-	@ManyToMany
-	@JoinTable(name = "mlc_schemes", joinColumns = @JoinColumn(name = "mlc_id"), inverseJoinColumns = @JoinColumn(name = "scheme_id"))
-	private List<Schemes> schemes;
+//	// ✅ Add Scheme Mapping
+//	@ManyToMany
+//	@JoinTable(name = "mlc_schemes", joinColumns = @JoinColumn(name = "mlc_id"), inverseJoinColumns = @JoinColumn(name = "scheme_id"))
+//	private List<Schemes> schemes;
+
+	// MLC.java
+	/*
+	 * @ManyToOne(fetch = FetchType.LAZY, optional = false)
+	 * 
+	 * @JoinColumn(name = "default_scheme_id", nullable = false) private Schemes
+	 * defaultScheme;
+	 */
+
+	// temporary migration setting:
+	@ManyToOne(fetch = FetchType.LAZY, optional = true)
+	@JoinColumn(name = "default_scheme_id", nullable = true)
+	private Schemes defaultScheme;
 
 	@OneToMany(mappedBy = "recommendedByMlc", cascade = CascadeType.ALL)
 	private List<Work> recommendedWorks;
@@ -77,4 +90,8 @@ public class MLC {
 	@OneToOne
 	@JoinColumn(name = "user_id", unique = true)
 	private User user;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "district_id")
+	private District district;
 }
