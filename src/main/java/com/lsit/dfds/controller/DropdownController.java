@@ -177,24 +177,36 @@ public class DropdownController {
 		return null;
 	}
 
+	// ---- Auth-guarded (same style as /talukas/by-district) ----
+
 	@GetMapping("/sectors")
-	public ResponseEntity<List<IdNameDto>> getAllSectors() {
+	public ResponseEntity<?> getAllSectors(@RequestHeader("Authorization") String authHeader) {
+		if (!isValidUser(authHeader))
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
 		return ResponseEntity.ok(dropdownService.getAllSectors());
 	}
 
 	@GetMapping("/schemes/by-sector/{sectorId}")
-	public ResponseEntity<List<IdNameDto>> getSchemesBySector(@PathVariable Long sectorId) {
+	public ResponseEntity<?> getSchemesBySector(@RequestHeader("Authorization") String authHeader,
+			@PathVariable Long sectorId) {
+		if (!isValidUser(authHeader))
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
 		return ResponseEntity.ok(dropdownService.getSchemesBySectorId(sectorId));
 	}
 
 	@GetMapping("/scheme-types")
-	public ResponseEntity<List<SchemeTypeDropdownDto>> getAllSchemeTypes() {
+	public ResponseEntity<?> getAllSchemeTypes(@RequestHeader("Authorization") String authHeader) {
+		if (!isValidUser(authHeader))
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
 		return ResponseEntity.ok(dropdownService.getAllSchemeTypesWithDetails());
 	}
 
 	@GetMapping("/schemes/dap")
-	public ResponseEntity<List<IdNameDto>> getDapSchemesForPath(@RequestParam Long financialYearId,
-			@RequestParam Long districtId, @RequestParam Long demandCodeId) {
+	public ResponseEntity<?> getDapSchemesForPath(@RequestHeader("Authorization") String authHeader,
+			@RequestParam Long financialYearId, @RequestParam Long districtId, @RequestParam Long demandCodeId) {
+		if (!isValidUser(authHeader))
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+
 		var list = schemesRepository.findDistrictSchemesForDemandCodeDAP(districtId, financialYearId, demandCodeId)
 				.stream().map(s -> new IdNameDto(s.getId(), s.getSchemeName())).toList();
 		return ResponseEntity.ok(list);

@@ -1,7 +1,6 @@
 package com.lsit.dfds.service;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +9,8 @@ import org.springframework.stereotype.Service;
 import com.lsit.dfds.dto.IdNameDto;
 import com.lsit.dfds.dto.SchemeTypeDropdownDto;
 import com.lsit.dfds.entity.DemandCode;
+import com.lsit.dfds.entity.MLA;
+import com.lsit.dfds.entity.MLC;
 import com.lsit.dfds.entity.Schemes;
 import com.lsit.dfds.entity.User;
 import com.lsit.dfds.entity.Work;
@@ -19,6 +20,8 @@ import com.lsit.dfds.repo.DemandCodeRepository;
 import com.lsit.dfds.repo.DistrictRepository;
 import com.lsit.dfds.repo.DivisionRepository;
 import com.lsit.dfds.repo.FinancialYearRepository;
+import com.lsit.dfds.repo.MLARepository;
+import com.lsit.dfds.repo.MLCRepository;
 import com.lsit.dfds.repo.SchemesRepository;
 import com.lsit.dfds.repo.SectorRepository;
 import com.lsit.dfds.repo.TalukaRepository;
@@ -54,33 +57,95 @@ public class DropdownServiceImpl implements DropdownService {
 	@Autowired
 	private ConstituencyRepository constituencyRepo;
 
+	@Autowired
+	private MLARepository mlaRepository;
+
+	@Autowired
+	private MLCRepository mlcRepository;
+
 	@Override
 	public List<String> getSchemeNamesForUser(String username) {
-		Optional<User> userOpt = userRepository.findByUsername(username);
+		User user = userRepository.findByUsername(username)
+				.orElseThrow(() -> new RuntimeException("User not found: " + username));
 
-		if (userOpt.isEmpty()) {
-			throw new RuntimeException("User not found: " + username);
+		Roles role = user.getRole();
+		if (role == null) {
+			throw new RuntimeException("Role not mapped for user: " + username);
 		}
 
-		User user = userOpt.get();
-		Roles role = user.getRole();
-
-		if (role == Roles.STATE_ADMIN) {
+		// ---- STATE (all state roles)
+		if (role == Roles.STATE_ADMIN || role == Roles.STATE_CHECKER || role == Roles.STATE_MAKER) {
 			return schemesRepository.findAll().stream().map(Schemes::getSchemeName).distinct()
 					.collect(Collectors.toList());
+		}
 
-		} else if (role == Roles.DISTRICT_ADMIN || role == Roles.IA_ADMIN) {
+		// ---- MLA / MLA_REP (return default MLA scheme)
+		if (role == Roles.MLA || role == Roles.MLA_REP) {
+			MLA mla = mlaRepository.findByUser_Id(user.getId())
+					.orElseThrow(() -> new RuntimeException("MLA record not linked to user: " + username));
+			Schemes s = resolveDefaultSchemeForMla(mla);
+			return List.of(s.getSchemeName());
+		}
+
+		// ---- MLC (return default MLC scheme)
+		if (role == Roles.MLC) {
+			MLC mlc = mlcRepository.findByUser_Id(user.getId())
+					.orElseThrow(() -> new RuntimeException("MLC record not linked to user: " + username));
+			Schemes s = resolveDefaultSchemeForMlc(mlc);
+			return List.of(s.getSchemeName());
+		}
+
+		// ---- DISTRICT & IA (scoped to user's district)
+		if (role == Roles.DISTRICT_ADMIN || role == Roles.DISTRICT_CHECKER || role == Roles.DISTRICT_MAKER
+				|| role == Roles.DISTRICT_ADPO || role == Roles.DISTRICT_DPO || role == Roles.DISTRICT_COLLECTOR
+				|| role == Roles.IA_ADMIN) {
+
 			if (user.getDistrict() == null) {
 				throw new RuntimeException("District not mapped for user: " + username);
 			}
-
 			Long districtId = user.getDistrict().getId();
 
 			return schemesRepository.findByDistricts_Id(districtId).stream().map(Schemes::getSchemeName).distinct()
 					.collect(Collectors.toList());
+		}
 
-		} else {
-			throw new RuntimeException("Unsupported role for dropdown: " + role);
+		throw new RuntimeException("Unsupported role for dropdown: " + role);
+	}
+
+	/* Helpers (put in the same service class) */
+	private Schemes resolveDefaultSchemeForMla(MLA mla) {
+		// Prefer field named "defaultScheme", fallback "scheme"
+		Schemes s = tryReadSchemeField(mla, "defaultScheme");
+		if (s == null)
+			s = tryReadSchemeField(mla, "scheme");
+		if (s == null || s.getId() == null) {
+			throw new RuntimeException("MLA default scheme is not configured");
+		}
+		return s;
+	}
+
+	private Schemes resolveDefaultSchemeForMlc(MLC mlc) {
+		// Prefer field named "defaultScheme", fallback "scheme"
+		Schemes s = tryReadSchemeField(mlc, "defaultScheme");
+		if (s == null)
+			s = tryReadSchemeField(mlc, "scheme");
+		if (s == null || s.getId() == null) {
+			throw new RuntimeException("MLC default scheme is not configured");
+		}
+		return s;
+	}
+
+	private Schemes tryReadSchemeField(Object owner, String fieldName) {
+		try {
+			var f = owner.getClass().getDeclaredField(fieldName);
+			f.setAccessible(true);
+			Object v = f.get(owner);
+			return (v instanceof Schemes) ? (Schemes) v : null;
+		} catch (NoSuchFieldException ignored) {
+			return null;
+		} catch (IllegalAccessException e) {
+			throw new RuntimeException("Cannot access field '" + fieldName + "' on " + owner.getClass().getSimpleName(),
+					e);
 		}
 	}
 
