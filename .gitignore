@@ -1,0 +1,86 @@
+# =============================
+# Spring Boot / Java / Maven
+# =============================
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# Maven / Gradle target folders
+target/
+build/
+
+# Eclipse / IntelliJ / VSCode project files
+*.classpath
+*.project
+*.settings/
+.idea/
+*.iml
+.vscode/
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Spring Boot specific
+spring-boot-app/
+spring-boot-devtools.properties
+
+# Environment variables / configuration files
+.env
+*.properties
+*.yml
+application-*.properties
+application-*.yml
+
+# Git itself
+.gitignore
+
+# Build folders
+/target/
+/build/
+
+# Eclipse/IDE files
+/.classpath
+/.factorypath
+/.settings/
+/*.iml
+/.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary uploads
+/uploads/
